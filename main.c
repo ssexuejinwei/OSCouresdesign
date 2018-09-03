@@ -1,9 +1,12 @@
 
+
 /*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                             main.c
 						针对源码进行了改进
 						通过原有的TestABC
-						写上可以进行操作的shell
+
+						写上可以进行操作的界面
+
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                                                     Xuejinwei, 2018
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
@@ -96,7 +99,9 @@ PUBLIC int kernel_main()
 		selector_ldt += 1 << 3;
 	}
 
-       
+
+        
+
 
 	k_reenter = 0;
 	ticks = 0;
@@ -127,7 +132,7 @@ PUBLIC int get_ticks()
 
 /*======================================================================*
                                TestA
-							   主界面
+
  *======================================================================*/
 void TestA()
 {
@@ -144,10 +149,13 @@ void TestA()
 	int fd_stdout = open(tty_name, O_RDWR);
 	assert(fd_stdout == 1);
 
+
+
 	const char bufw[80] = {0};
 
 	
 	clear();
+
 	printf("                        ==================================\n");
 	printf("                                   Xinux v1.0.0             \n");
 	printf("                                 Kernel on Orange's \n\n");
@@ -158,8 +166,21 @@ void TestA()
 		printl("[root@localhost /] ");
 		int r = read(fd_stdin, rdbuf, 70);
 		rdbuf[r] = 0;
+
+		if (!strcmp(rdbuf, "CAL"))
+		{
+			int year;
+			char temp[70];
+			printf("INPUT THE YEAR:");
+			int r = read(fd_stdin, temp, 70);
+			temp[r] = 0;
+			atoi(temp, &year);
+			Calendar(year);
+			printf("\n");
+			continue;
+		}
+        else if (!strcmp(rdbuf, "PROC"))
 		
-        if (!strcmp(rdbuf, "PROC"))
         {
 			ProcessManage();
         }
@@ -172,10 +193,17 @@ void TestA()
 		{
 			help();
 		}
+
+		else if (!strcmp(rdbuf, "GAME1"))
+		{
+
+			Game1(fd_stdin, fd_stdout);
+		}
 		
 		else if (strcmp(rdbuf, "CL") == 0)
 		{
 			clear();
+
 			printf("                        ==================================\n");
 			printf("                                   Xinux v1.0.0            \n");
 			printf("                                 Kernel on Orange's \n\n");
@@ -187,6 +215,8 @@ void TestA()
 		else
 			printf("Command not found, please input HL to get help!\n");
 	}
+
+
 }
 
 /*======================================================================*
@@ -195,6 +225,7 @@ void TestA()
  *======================================================================*/
 void TestB()
 {
+
 	char tty_name[] = "/dev_tty1";
 
 	int fd_stdin = open(tty_name, O_RDWR);
@@ -207,20 +238,144 @@ void TestB()
 	printf("                                    File Manager           \n");
 	printf("                                 Kernel on Orange's \n\n");
 	printf("                        ==================================\n");
-	spin("TestB");
+	
 }
 
-/*======================================================================*
-TestC
-准备在其中写个进程管理
-*======================================================================*/
+
+
+
+
+
 void TestC()
 {
 	spin("TestC");
 }
 
 
+/*======================================================================*
+Calendar
+日历生成相关函数
+*======================================================================*/
 
+/*思路:
+（1）首先需要打印年月和月历的周一到周日
+（2）判断每个月的1号是周几，这样利用固定的算法就可以依次求出2、3、4、、、等是星期几
+（3）其中还需要判断在什么时候进行换行处理。以及判断 是否是闰年。
+*/
+
+int f(int year, int month)
+{/*f(年，月)＝年－1，如月<3;否则，f(年，月)＝年*/
+	if (month<3) return year - 1;
+	else return year;
+}
+
+int g(int month)
+{/*g(月)＝月＋13，如月<3;否则，g(月)＝月＋1*/
+	if (month<3) return month + 13;
+	else return month + 1;
+}
+
+
+/*计算日期的N值*/
+int n(int year, int month, int day)
+{
+	/*N=1461*f(年、月)/4+153*g(月)/5+日*/
+	return 1461L * f(year, month) / 4 + 153L * g(month) / 5 + day;
+}
+
+/*利用N值算出某年某月某日对应的星期几*/
+int w(int year, int month, int day)
+{
+	/*w=(N-621049)%7(0<=w<7)*/
+	return(int)((n(year, month, day) % 7 - 621049L % 7 + 7) % 7);
+}
+
+int date[12][6][7];
+
+/*该数组对应了非闰月和闰月的每个月份的天数情况*/
+int day_month[][12] = { { 31,28,31,30,31,30,31,31,30,31,30,31 },
+{ 31,29,31,30,31,30,31,31,30,31,30,31 } };
+
+void Calendar(int year)
+{
+	int sw, leap, i, j, k, wd, day;/*leap 判断闰年*/
+
+	char title[] = "SUN MON TUE WED THU FRI SAT";
+
+
+	sw = w(year, 1, 1);
+	leap = year % 4 == 0 && year % 100 || year % 400 == 0;/*判闰年*/
+	for (i = 0; i<12; i++)
+		for (j = 0; j<6; j++)
+			for (k = 0; k<7; k++)
+				date[i][j][k] = 0;/*日期表置0*/
+	for (i = 0; i<12; i++)/*一年十二个月*/
+	{
+		for (wd = 0, day = 1; day <= day_month[leap][i]; day++)
+		{/*将第i＋1月的日期填入日期表*/
+			date[i][wd][sw] = day;
+			sw = ++sw % 7;/*每星期七天，以0至6计数*/
+			if (sw == 0) wd++;/*日期表每七天一行，星期天开始新的一行*/
+		}
+	}
+
+	printf("\n|==================The Calendar of Year %d =====================|\n|", year);
+
+	for (i = 0; i<6; i++)
+	{/*先测算第i+1月和第i+7月的最大星期数*/
+		for (wd = 0, k = 0; k<7; k++)/*日期表的第六行有日期，则wd!=0*/
+			wd += date[i][5][k] + date[i + 6][5][k];
+		wd = wd ? 6 : 5;
+		printf("%2d  %s  %2d  %s |\n|", i + 1, title, i + 7, title);
+		for (j = 0; j<wd; j++)
+		{
+			printf("   ");/*输出四个空白符*/
+						  /*左栏为第i+1月，右栏为第i+7月*/
+			for (k = 0; k<7; k++)
+				if (date[i][j][k])
+					printf("%4d", date[i][j][k]);
+				else printf("    ");
+				printf("     ");/*输出十个空白符*/
+				for (k = 0; k<7; k++)
+					if (date[i + 6][j][k])
+						printf("%4d", date[i + 6][j][k]);
+					else printf("    ");
+					printf(" |\n|");
+		}
+		
+
+	}
+	printf("=================================================================|\n");
+
+}
+
+/*======================================================================*
+小游戏1 猜数字
+*======================================================================*/
+void Game1(int fd_stdin, int fd_stdout) {
+	int result = 2018;
+	int finish = 0;
+	int guess;
+	printf("Now the guess number game begin\n");
+	while (!finish) {
+		printf("please input your guess number:");
+		char temp[70];
+		int r = read(fd_stdin, temp, 70);
+		temp[r] = 0;
+		atoi(temp, &guess);
+		if (guess < result) {
+			printf("your number is small\n");
+		}
+		else if (guess>result) {
+			printf("your number is big\n");
+		}
+		else {
+			printf("Congratulations,you're right\n");
+			finish = 1;
+		}
+
+	}
+}
 
 
 /*****************************************************************************
@@ -254,16 +409,18 @@ void clear()
 
 void help()
 {
+
 	printf("=============================================================================\n");
 	printf("Command List     :\n");
 	printf("1. PROC       : A process manage,show you all process-info here\n");
 	printf("2. FLM        : Run the file manager\n");
 	printf("3. CL         : Clear the screen\n");
 	printf("4. HL         : Show this help message\n");
+	printf("5. CAL        : Show a calendar\n");
+	printf("6. GAME1       : Run a small game(guess number) on this OS\n");
 	printf("==============================================================================\n");
 }
 
 void ProcessManage()
 {
-	
 }
