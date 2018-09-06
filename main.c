@@ -1,12 +1,9 @@
 
-
 /*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                             main.c
 						针对源码进行了改进
 						通过原有的TestABC
-
-						写上可以进行操作的界面
-
+						写上可以进行操作的shell
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                                                     Xuejinwei, 2018
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
@@ -99,9 +96,7 @@ PUBLIC int kernel_main()
 		selector_ldt += 1 << 3;
 	}
 
-
         
-
 
 	k_reenter = 0;
 	ticks = 0;
@@ -132,7 +127,6 @@ PUBLIC int get_ticks()
 
 /*======================================================================*
                                TestA
-
  *======================================================================*/
 void TestA()
 {
@@ -150,15 +144,13 @@ void TestA()
 	assert(fd_stdout == 1);
 
 
-
 	const char bufw[80] = {0};
 
 	
 	clear();
-
 	printf("                        ==================================\n");
 	printf("                                   Xinux v1.0.0             \n");
-	printf("                                 Kernel on Orange's \n\n");
+	printf("                                 Kernel on Orange's \n");
 	printf("                                     Welcome !\n");
 	printf("                        ==================================\n");
 	
@@ -166,12 +158,12 @@ void TestA()
 		printl("[root@localhost /] ");
 		int r = read(fd_stdin, rdbuf, 70);
 		rdbuf[r] = 0;
-
-		if (!strcmp(rdbuf, "CAL"))
+		if (!strcmp(rdbuf, "cal"))
 		{
 			int year;
 			char temp[70];
-			printf("INPUT THE YEAR:");
+			printf("input the year:");
+
 			int r = read(fd_stdin, temp, 70);
 			temp[r] = 0;
 			atoi(temp, &year);
@@ -179,28 +171,26 @@ void TestA()
 			printf("\n");
 			continue;
 		}
-        else if (!strcmp(rdbuf, "PROC"))
-		
+        else if (!strcmp(rdbuf, "proc"))
         {
 			ProcessManage();
         }
-		else if (!strcmp(rdbuf, "FLM"))
+		else if (!strcmp(rdbuf, "flm"))
 		{
 			printf("File Manager is already running on TTY1 ! \n");
 			continue;
 
-		}else if (!strcmp(rdbuf, "HL"))
+		}else if (!strcmp(rdbuf, "help"))
 		{
 			help();
 		}
-
-		else if (!strcmp(rdbuf, "GAME1"))
+		else if (!strcmp(rdbuf, "game1"))
 		{
 
 			Game1(fd_stdin, fd_stdout);
 		}
 		
-		else if (strcmp(rdbuf, "CL") == 0)
+		else if (strcmp(rdbuf, "cl") == 0)
 		{
 			clear();
 
@@ -208,6 +198,7 @@ void TestA()
 			printf("                                   Xinux v1.0.0            \n");
 			printf("                                 Kernel on Orange's \n\n");
 			printf("                                     Welcome !\n");
+
 			printf("                        ==================================\n");
 		}
 		
@@ -216,39 +207,20 @@ void TestA()
 			printf("Command not found, please input HL to get help!\n");
 	}
 
-
-}
-
-/*======================================================================*
-                               TestB
-							   准备在其中写个文件系统管理
- *======================================================================*/
-void TestB()
-{
-
-	char tty_name[] = "/dev_tty1";
-
-	int fd_stdin = open(tty_name, O_RDWR);
-	assert(fd_stdin == 0);
-	int fd_stdout = open(tty_name, O_RDWR);
-	assert(fd_stdout == 1);
-
-
-	printf("                        ==================================\n");
-	printf("                                    File Manager           \n");
-	printf("                                 Kernel on Orange's \n\n");
-	printf("                        ==================================\n");
-	
 }
 
 
-
-
-
-
-void TestC()
+void help()
 {
-	spin("TestC");
+	printf("=============================================================================\n");
+	printf("Command List     :\n");
+	printf("1. proc       : A process manage,show you all process-info here\n");
+	printf("2. flm        : Run the file manager\n");
+	printf("3. cl         : Clear the screen\n");
+	printf("4. help       : Show operation guide\n");
+	printf("5. cal        : Show a calendar\n");
+	printf("6. game1      : Run a small game(guess number) on this OS\n");
+	printf("==============================================================================\n");
 }
 
 
@@ -257,11 +229,13 @@ Calendar
 日历生成相关函数
 *======================================================================*/
 
+
 /*思路:
 （1）首先需要打印年月和月历的周一到周日
 （2）判断每个月的1号是周几，这样利用固定的算法就可以依次求出2、3、4、、、等是星期几
 （3）其中还需要判断在什么时候进行换行处理。以及判断 是否是闰年。
 */
+
 
 int f(int year, int month)
 {/*f(年，月)＝年－1，如月<3;否则，f(年，月)＝年*/
@@ -342,12 +316,16 @@ void Calendar(int year)
 					else printf("    ");
 					printf(" |\n|");
 		}
-		
+
+
+
 
 	}
 	printf("=================================================================|\n");
 
+
 }
+
 
 /*======================================================================*
 小游戏1 猜数字
@@ -376,6 +354,213 @@ void Game1(int fd_stdin, int fd_stdout) {
 
 	}
 }
+
+/*======================================================================*
+                               TestB
+							文件系统管理
+ *======================================================================*/
+
+/*
+文件系统较为简洁
+在调用oranges系统已有的文件操作基础上进行了界面设计(参阅/fs/文件夹)
+仅提供文件创建,文件删除，文件打开，文件读写等操作
+*/
+
+void TestB()
+{
+	char tty_name[] = "/dev_tty1";
+
+	int fd_stdin = open(tty_name, O_RDWR);
+	assert(fd_stdin == 0);
+	int fd_stdout = open(tty_name, O_RDWR);
+	assert(fd_stdout == 1);
+
+	/*打印界面*/
+	printf("                        ==================================\n");
+	printf("                                    File Manager           \n");
+	printf("                                 Kernel on Orange's \n\n");
+	printf("                        ==================================\n");
+
+	/*定义相关参数*/
+
+	char file_name[128];//操作的文件名
+	char cmd[8];//进行的操作
+	char rdbuf[128];
+
+
+	char created_table[100][20] = { 0 };//已存在的文件列表 最大存在100个文件
+	int numOfcreate = 0;
+
+
+	while (1) {
+		printf("$ ");
+
+		/*读取用户输入*/
+		int r = read(fd_stdin, rdbuf, 80);
+		rdbuf[r] = 0;
+
+		/*进行判断*/
+		if (!strcmp(rdbuf, "help")) {
+			help_b();
+			continue;
+		}
+		else if (!strcmp(rdbuf, "ls")) {
+			if (!numOfcreate) {
+				printf("no file\n");
+				continue;
+			}
+			for (int i = 0; i < numOfcreate; i++) {
+				printf("%s    ", created_table[i]);
+				if (i!=0&&(i % 5) == 0) {
+					printf("\n");
+				}
+			}
+			printf("\n");
+			continue;
+		}
+		else {
+			/*将用户输入分解成cmd+filename*/
+			int i = 0;
+			int j = 0;
+			while (rdbuf[i] != ' ') {
+				cmd[i] = rdbuf[i];
+				i++;
+				if (i > 128)break;
+			}
+			if (i > 128) {
+				printf("Command not found, please input help to get help!\n");
+				continue;
+			}
+
+			cmd[i++] = 0;
+
+			while (rdbuf[i] != 0) {
+				file_name[j] = rdbuf[i];
+				i++;
+				j++;
+			}
+			file_name[j] = 0;
+
+			/*开始执行命令*/
+			if (!strcmp(cmd, "cre")) {
+				if (create_file(file_name)) {
+					/*文件列表没有该文件*/
+					memcpy(created_table[numOfcreate], file_name, 20);
+					numOfcreate++;
+					continue;
+				}
+			}
+			else if (!strcmp(cmd, "rd")) {
+				read_file(file_name);
+				continue;
+			}
+			else if (!strcmp(cmd, "wt")) {
+				write_file(file_name, fd_stdin);
+				continue;
+			}
+			else if (!strcmp(cmd, "del")) {
+				del_file(file_name);
+				continue;
+			}
+			else {
+				printf("Command not found, please input help to get help!\n");
+				continue;
+			}
+		}
+	}
+}
+
+
+void help_b() {
+	printf("=============================================================================\n");
+	printf("Command List     :\n");
+	printf("1. ls [filename]        : list the all files \n");
+	printf("1. cre [filename]       : Create a new file \n");
+	printf("2. rd [filename]        : Read the file\n");
+	printf("3. wt [filename]        : Write at the end of the file\n");
+	printf("4. del [filename]       : Delete the file\n");
+	printf("5. help                 : Show operation guide\n");
+	printf("==============================================================================\n");
+}
+
+/*======================================================================*
+文件操作相关函数
+*======================================================================*/
+
+int create_file(char* file_name) {
+	int fd;
+	/*调用Orange系统写好的文件系统相关接口函数*/
+	fd = open(file_name, O_CREAT | O_RDWR);
+	if(fd==-1){
+		printf("Create file failed! the file has been existed.\n");
+		return -1;
+	}
+	
+	char buf[128];
+	buf[0] = 0;
+	write(fd, buf, 1);
+	printf("File create successful: %s (fd %d)\n", file_name, fd);
+	close(fd);
+	return 1;
+}
+
+int read_file(char* file_name) {
+	int fd;
+	/*调用Orange系统写好的文件系统相关接口函数*/
+	fd = open(file_name, O_RDWR);
+	if (fd ==-1) {
+		printf("Open file failed! please check the filename \n");
+		return -1;
+	}
+
+	char buf[1024];
+	int n = read(fd, buf, 1024);
+	printf("%s\n", buf);
+	close(fd);
+	return 1;
+}
+
+int write_file(char* file_name,int fd_stdin) {
+	int fd;
+	fd = open(file_name, O_RDWR);
+	if (fd == -1)
+	{
+		printf("Open file failed! please check the filename \n");
+		return -1;
+	}
+	char buf[128];
+	int r = read(fd_stdin, buf, 80);
+	buf[r] = 0;
+
+	int m = write(fd, buf, r+ 1);
+	close(fd);
+	return 1;
+}
+
+int del_file(char* file_name) {
+	int r = unlink(file_name);
+	if (r == 0)
+	{
+		printf("File delete successful!\n");
+		return 1;
+	}
+	else
+	{
+		printf("Delete file failed! Please check the fileaname!\n");
+		return -1;
+	}
+
+}
+
+
+
+
+void TestC()
+{
+	spin("TestC");
+}
+
+
 
 
 /*****************************************************************************
@@ -407,20 +592,8 @@ void clear()
 
 
 
-void help()
-{
-
-	printf("=============================================================================\n");
-	printf("Command List     :\n");
-	printf("1. PROC       : A process manage,show you all process-info here\n");
-	printf("2. FLM        : Run the file manager\n");
-	printf("3. CL         : Clear the screen\n");
-	printf("4. HL         : Show this help message\n");
-	printf("5. CAL        : Show a calendar\n");
-	printf("6. GAME1       : Run a small game(guess number) on this OS\n");
-	printf("==============================================================================\n");
-}
 
 void ProcessManage()
 {
 }
+
