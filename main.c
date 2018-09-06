@@ -204,7 +204,7 @@ void TestA()
 		
 
 		else
-			printf("Command not found, please input HL to get help!\n");
+			printf("Command not found, please input help to get help!\n");
 	}
 
 }
