@@ -126,6 +126,7 @@ PUBLIC int get_ticks()
 
 /*======================================================================*
                                TestA
+							   主界面
  *======================================================================*/
 void TestA()
 {
@@ -171,14 +172,17 @@ void TestA()
 		}
         else if (!strcmp(rdbuf, "proc"))
         {
-			ProcessManage();
+			ProcessManager(fd_stdin, fd_stdout);
+			continue;
         }
+
 		else if (!strcmp(rdbuf, "flm"))
 		{
 			printf("File Manager is already running on TTY1 ! \n");
 			continue;
 
-		}else if (!strcmp(rdbuf, "help"))
+		}
+		else if (!strcmp(rdbuf, "help"))
 		{
 			help();
 		}
@@ -227,7 +231,8 @@ calculator
 *======================================================================*/
 int Power(int A, int B) {
 	int result = 1;
-	for (int i = 0; i < B; i++) {
+	int i;
+	for (i = 0; i < B; i++) {
 		result = A * result;
 	}
 	return result;
@@ -470,7 +475,8 @@ void TestB()
 				printf("no file\n");
 				continue;
 			}
-			for (int i = 0; i < numOfcreate; i++) {
+			int i;
+			for (i = 0; i < numOfcreate; i++) {
 				printf("%s    ", created_table[i]);
 				if (i!=0&&(i % 5) == 0) {
 					printf("\n");
@@ -612,12 +618,234 @@ int del_file(char* file_name) {
 	}
 }
 
+void TestC() {
+	while (1) {
 
-
-void TestC()
-{
-	spin("TestC");
+	}
 }
+/*======================================================================*
+								ProcessManager
+								进程任务管理
+*======================================================================*/
+
+
+void help_c() {
+	printf("=============================================================================\n");
+	printf("Command List    :\n");
+	printf("1.info          : show your process information\n");
+	printf("2.create        : Create a new process\n");
+	printf("1.kill          : kill a process \n");
+	printf("4.clear         : clear the screen\n");
+	printf("5.help         : Show operation guide\n");
+	printf("6.exit         : exit the process manger \n");
+	printf("==============================================================================\n");
+}
+
+/*添加进程函数*/
+int addProcess()
+{
+	struct task* p_task;
+	struct proc* p_proc = proc_table;
+	char* p_task_stack = task_stack + STACK_SIZE_TOTAL;
+	u16   selector_ldt = SELECTOR_LDT_FIRST;
+	u8    privilege;
+	u8    rpl;
+	int   eflags;
+	int   i, j;
+	int   prio;
+	for (i = 0; i < NR_TASKS + NR_PROCS; i++) {
+		if (i < NR_TASKS) {     /* 任务 */
+			p_task = task_table + i;
+			privilege = PRIVILEGE_TASK;
+			rpl = RPL_TASK;
+			eflags = 0x1202; /* IF=1, IOPL=1, bit 2 is always 1 */
+			prio = 15;
+		}
+		else {                  /* 用户进程 */
+			p_task = user_proc_table + (i - NR_TASKS);
+			privilege = PRIVILEGE_USER;
+			rpl = RPL_USER;
+			eflags = 0x202; /* IF=1, bit 2 is always 1 */
+			prio = 5;
+		}
+
+		strcpy(p_proc->name, p_task->name);	/* name of the process */
+		p_proc->pid = i;			/* pid */
+
+		p_proc->ldt_sel = selector_ldt;
+
+		memcpy(&p_proc->ldts[0], &gdt[SELECTOR_KERNEL_CS >> 3],
+			sizeof(struct descriptor));
+		p_proc->ldts[0].attr1 = DA_C | privilege << 5;
+		memcpy(&p_proc->ldts[1], &gdt[SELECTOR_KERNEL_DS >> 3],
+			sizeof(struct descriptor));
+
+		/*初始化各寄存器*/
+		p_proc->ldts[1].attr1 = DA_DRW | privilege << 5;
+		p_proc->regs.cs = (0 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
+		p_proc->regs.ds = (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
+		p_proc->regs.es = (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
+		p_proc->regs.fs = (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
+		p_proc->regs.ss = (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
+		p_proc->regs.gs = (SELECTOR_KERNEL_GS & SA_RPL_MASK) | rpl;
+
+		p_proc->regs.eip = (u32)p_task->initial_eip;
+		p_proc->regs.esp = (u32)p_task_stack;
+		p_proc->regs.eflags = eflags;
+
+
+		/*初始化进程各参数*/
+		p_proc->p_flags = 0;
+		p_proc->p_msg = 0;
+		p_proc->p_recvfrom = NO_TASK;
+		p_proc->p_sendto = NO_TASK;
+		p_proc->has_int_msg = 0;
+		p_proc->q_sending = 0;
+		p_proc->next_sending = 0;
+
+		for (j = 0; j < NR_FILES; j++)
+			p_proc->filp[j] = 0;
+
+		p_proc->ticks = p_proc->priority = prio;
+
+		p_task_stack -= p_task->stacksize;
+		p_proc++;
+		p_task++;
+		selector_ldt += 1 << 3;
+	}
+
+
+
+	k_reenter = 0;
+	ticks = 0;
+
+	p_proc_ready = proc_table;
+	return i;
+}
+/*查看系统内运行情况*/
+void ProcessInfo()
+{
+	printf("=============================================================================\n");
+	printf("      PID      |    name       | priority    | running?\n");
+	//进程号，进程名，优先级，是否是系统进程，是否在运行
+	printf("-----------------------------------------------------------------------------\n");
+	int i;
+	for (i = 0; i < NR_TASKS + NR_PROCS; ++i)//逐个遍历
+	{
+		if (proc_table[i].priority == 0)
+			continue;//系统资源跳过
+		printf("        %d           %s              %d            yes\n", proc_table[i].pid, proc_table[i].name, proc_table[i].priority);
+	}
+	printf("=============================================================================\n");
+}
+
+void clear()
+{
+	clear_screen(0, console_table[current_console].cursor);
+	console_table[current_console].crtc_start = 0;
+	console_table[current_console].cursor = 0;
+}
+
+void ProcessManager(int fd_stdin,int fd_stdout)
+{
+	int i, n;
+
+	char rdbuf[128];
+
+	clear();
+	printf("                        ==================================\n");
+	printf("                                   Process Manager           \n");
+	printf("                                 Kernel on Orange's \n\n");
+	printf("                        ==================================\n");
+
+
+	while (1) {
+		printl("$ ");
+		int r = read(fd_stdin, rdbuf, 70);
+		rdbuf[r] = 0;
+
+		if (!strcmp(rdbuf, "help")) {
+			help_c();
+			continue;
+		}
+		else if (!strcmp(rdbuf, "clear")) {
+			clear();
+			printf("                        ==================================\n");
+			printf("                                   Process Manager           \n");
+			printf("                                 Kernel on Orange's \n\n");
+			printf("                        ==================================\n");
+			continue;
+		}
+		else if (!strcmp(rdbuf, "info")) {
+			ProcessInfo();
+			continue;
+		}
+		else if (!strcmp(rdbuf, "create")) {
+			int i;
+			for (i = 0; i < NR_TASKS + NR_PROCS; ++i)
+			{
+				if (proc_table[i].priority == 0)
+				{
+					break;
+				}
+			}
+			if (i == NR_TASKS + NR_PROCS)
+				printf("process list is full! \n");
+			else
+			{
+				i = addProcess();
+				proc_table[i].priority = 5;
+				printf("a new process is running!\n");
+			}
+			continue;
+		}
+		else if (!strcmp(rdbuf, "kill")) {
+			int _pid;
+			printf("Input the pro-ID #");
+			char buf[70];
+			int m = read(fd_stdin, buf, 70);
+			buf[m] = 0;
+			atoi(buf, &_pid);
+			if (!strcmp(proc_table[_pid].name, "TestA")) {
+				printf("Can't killed sysytem process!\n");
+				continue;
+			}
+			if (!strcmp(proc_table[_pid].name, "TestB")) {
+				printf("Can't killed sysytem process!\n");
+				continue;
+			}
+			if (!strcmp(proc_table[_pid].name, "TestC")) {
+				printf("kill successful!\n");
+				continue;
+			}
+			else {
+				if (proc_table[_pid].priority == 0)
+				{
+					printf("kill failed!\n");
+					continue;
+				}
+				proc_table[_pid].priority = 0;
+				proc_table[_pid].name[0] = 0;
+				printf("kill successful!\n");
+				continue;
+			}
+		}
+		else if (!strcmp(rdbuf, "exit")) {
+			clear();
+			printf("                        ==================================\n");
+			printf("                                   Xinux v1.0.0             \n");
+			printf("                                 Kernel on Orange's \n");
+			printf("                                     Welcome !\n");
+			printf("                        ==================================\n");
+			return;
+		}
+		else {
+			printf("Command not found, please input help to get help!\n");
+			continue;
+		}
+	}
+}
+
 
 
 
@@ -641,17 +869,3 @@ PUBLIC void panic(const char *fmt, ...)
 	__asm__ __volatile__("ud2");
 }
 
-void clear()
-{
-	clear_screen(0,console_table[current_console].cursor);
-	console_table[current_console].crtc_start = 0;
-	console_table[current_console].cursor = 0;
-	
-}
-
-
-
-
-void ProcessManage()
-{
-}
