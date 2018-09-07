@@ -1,4 +1,3 @@
-
 /*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                             main.c
 						针对源码进行了改进
@@ -163,7 +162,6 @@ void TestA()
 			int year;
 			char temp[70];
 			printf("input the year:");
-
 			int r = read(fd_stdin, temp, 70);
 			temp[r] = 0;
 			atoi(temp, &year);
@@ -189,16 +187,16 @@ void TestA()
 
 			Game1(fd_stdin, fd_stdout);
 		}
-		
+		else if (!strcmp(rdbuf, "calcu")) {
+			calculator(fd_stdin, fd_stdout);
+		}
 		else if (strcmp(rdbuf, "cl") == 0)
 		{
 			clear();
-
 			printf("                        ==================================\n");
 			printf("                                   Xinux v1.0.0            \n");
 			printf("                                 Kernel on Orange's \n\n");
 			printf("                                     Welcome !\n");
-
 			printf("                        ==================================\n");
 		}
 		
@@ -219,9 +217,81 @@ void help()
 	printf("3. cl         : Clear the screen\n");
 	printf("4. help       : Show operation guide\n");
 	printf("5. cal        : Show a calendar\n");
+	printf("5. calcu      : open a calculator\n");
 	printf("6. game1      : Run a small game(guess number) on this OS\n");
 	printf("==============================================================================\n");
 }
+/*======================================================================*
+calculator
+计算器生成相关函数
+*======================================================================*/
+int Power(int A, int B) {
+	int result = 1;
+	for (int i = 0; i < B; i++) {
+		result = A * result;
+	}
+	return result;
+}
+
+void calculator(int fd_stdin, int fd_stdout)
+{
+	int A = 0;
+	int B = 0;
+	int result = 0;    //计算结果
+	int select = 0;  //选择的选项
+	do         
+	{
+		/*打印出操作界面*/
+		printf("--------------------\n");
+		printf("   input your choice \n");
+		printf("        1.+       \n");
+		printf("        2.-       \n");
+		printf("        3.*       \n");
+		printf("        4./       \n");
+		printf("        5.^       \n");
+		printf("        6.exit       \n");
+		printf("--------------------\n");
+
+		/*输入选择*/
+		printf("please input your number:");
+		char temp[70];
+		int r = read(fd_stdin, temp, 70);
+		temp[r] = 0;
+		atoi(temp, &select);
+		if (select == 6)break;
+		if (select > 6) {
+			printf("input error please input again\n");
+			continue;
+		}
+		printf("input your operand A B:");
+		
+		/*读取两个操作数*/
+		char at[70];
+		char bt[70];
+		int r1 = read(fd_stdin, at, 70);
+		at[r1] = 0;
+		atoi(at, &A);
+
+		int r2 = read(fd_stdin, bt, 70);
+		bt[r2] = 0;
+		atoi(bt, &B);
+
+		if(select==1)
+			printf("%d+%d=%d\n", A, B, result = A + B);   //实现加法功能
+		else if(select==2)
+			printf("%d-%d=%d\n", A, B, result = A - B);     //实现减法功能	
+		else if(select==3)
+			printf("%d*%d=%d\n", A, B, result = A * B);      // 实现乘法功能
+		else if(select==4)
+			printf("%d/%d=%d\n", A, B, result = A / B);      //实现除法功能
+		else if(select==5)
+			printf("%d^%d=%d\n", A, B, result = Power(A,B));      //实现乘方功能
+		else
+			printf("input error please input again\n");
+	} while (select);
+}
+
+
 
 
 /*======================================================================*
@@ -229,13 +299,7 @@ Calendar
 日历生成相关函数
 *======================================================================*/
 
-
-/*思路:
-（1）首先需要打印年月和月历的周一到周日
-（2）判断每个月的1号是周几，这样利用固定的算法就可以依次求出2、3、4、、、等是星期几
-（3）其中还需要判断在什么时候进行换行处理。以及判断 是否是闰年。
-*/
-
+/*思路:（1）首先需要打印年月和月历的周一到周日（2）判断每个月的1号是周几，这样利用固定的算法就可以依次求出2、3、4、、、等是星期几（3）其中还需要判断在什么时候进行换行处理。以及判断 是否是闰年。*/
 
 int f(int year, int month)
 {/*f(年，月)＝年－1，如月<3;否则，f(年，月)＝年*/
@@ -318,20 +382,17 @@ void Calendar(int year)
 		}
 
 
-
-
 	}
 	printf("=================================================================|\n");
 
-
 }
-
 
 /*======================================================================*
 小游戏1 猜数字
 *======================================================================*/
 void Game1(int fd_stdin, int fd_stdout) {
-	int result = 2018;
+	//int result = 2018;
+	int result = get_ticks() % 100;
 	int finish = 0;
 	int guess;
 	printf("Now the guess number game begin\n");
@@ -348,7 +409,7 @@ void Game1(int fd_stdin, int fd_stdout) {
 			printf("your number is big\n");
 		}
 		else {
-			printf("Congratulations,you're right\n");
+			printf("Congratulations! you're right\n");
 			finish = 1;
 		}
 
@@ -549,9 +610,7 @@ int del_file(char* file_name) {
 		printf("Delete file failed! Please check the fileaname!\n");
 		return -1;
 	}
-
 }
-
 
 
 
@@ -596,4 +655,3 @@ void clear()
 void ProcessManage()
 {
 }
-
